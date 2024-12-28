@@ -5,6 +5,7 @@
   box-sizing: border-box;
 }
 
+/* Set the background color and fullscreen video */
 body {
   margin: 0;
   overflow: hidden; /* Hide scrollbars on mobile */
@@ -18,10 +19,13 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover; 
-  z-index: -1; 
+  object-fit: cover; /* Ensures video covers the screen */
+  z-index: -1;       /* Sends the video behind content */
+  opacity: 1;
+  transition: opacity 0.5s ease-in-out;
 }
 
+/* Overlay Text */
 .overlay-text {
   position: absolute;
   top: 50%;
@@ -32,4 +36,10 @@ body {
   font-size: 2rem;
   text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.7);
   text-align: center;
+  pointer-events: none; /* Allows clicks to pass through to the video */
+}
+
+/* Fade-out class for smooth transitions */
+.fade-out {
+  opacity: 0;
 }
