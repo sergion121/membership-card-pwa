@@ -8,18 +8,18 @@
   >
   <title>Fullscreen Video PWA</title>
 
-  <!-- iOS "Add to Home Screen" -->
+  <!-- PWA Meta Tags -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  
+  <!-- Link to Manifest -->
+  <link rel="manifest" href="manifest.json">
+  
+  <!-- iOS Icons -->
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 
   <!-- Link to CSS -->
   <link rel="stylesheet" href="styles.css">
-
-  <!-- Link to your manifest.json -->
-  <link rel="manifest" href="manifest.json">
-
-  <!-- iOS Icon and more (optional) -->
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 </head>
 <body>
   <!-- Video Element -->
@@ -32,21 +32,28 @@
     webkit-playsinline
     loop
   >
-    <source id="video-source" src="Part_01_edited_v3.mov" type="video/mp4">
+    <source id="video-source" src="Part_01_edited_v3.mp4" type="video/mp4">
     Your browser does not support the video tag.
   </video>
 
   <!-- Overlay Text -->
   <div class="overlay-text">Tap to Play Next Video!</div>
 
-  <!-- App JS -->
+  <!-- Link to JS -->
   <script src="app.js"></script>
+
   <!-- Register Service Worker -->
   <script>
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js')
-        .then(() => console.log('Service Worker Registered'))
-        .catch(err => console.error('Service Worker Registration Failed:', err));
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js')
+          .then(registration => {
+            console.log('Service Worker Registered with scope:', registration.scope);
+          })
+          .catch(error => {
+            console.error('Service Worker Registration Failed:', error);
+          });
+      });
     }
   </script>
 </body>
