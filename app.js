@@ -4,9 +4,9 @@ const videoSource = document.getElementById("video-source");
 
 // List of video paths in the "MP4" folder
 const videoList = [
-    "MP4/Part_01_edited_v3.mp4",
-    "MP4/STUK_Flipping__Sequence(Prolonged backside)_v5.mp4",
-    "MP4/STUK_Flipping_back__Sequence(Prolonged)_v2.mp4"
+    "Part_01_edited_v3.mp4",
+    "STUK_Flipping__Sequence(Prolonged backside)_v5.mp4",
+    "STUK_Flipping_back__Sequence(Prolonged)_v2.mp4"
 ];
 
 // Current video index
