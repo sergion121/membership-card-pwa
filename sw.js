@@ -1,11 +1,11 @@
-const CACHE_NAME = 'video-pwa-cache-v1';
+const CACHE_NAME = 'video-pwa-cache-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/styles.css',
   '/app.js',
   '/manifest.json'
-  // Add any other static assets here (e.g., fonts, additional images)
+  // No icons, and we skip caching videos to save space
 ];
 
 // Install Event - Caching Essential Assets
@@ -46,11 +46,10 @@ self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(request)
       .then(cachedResponse => {
-        // Return cached response if found, else fetch from network
         return cachedResponse || fetch(request);
       })
       .catch(() => {
-        // Optionally, return a fallback page if fetch fails
+        // Optional fallback
         if (request.mode === 'navigate') {
           return caches.match('/index.html');
         }
