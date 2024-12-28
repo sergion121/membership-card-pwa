@@ -4,11 +4,8 @@ const ASSETS_TO_CACHE = [
   '/index.html',
   '/styles.css',
   '/app.js',
-  '/manifest.json',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-  '/icons/apple-touch-icon.png'
-  // Add any other assets you want to cache (e.g., fonts, images)
+  '/manifest.json'
+  // Add any other static assets here (e.g., fonts, additional images)
 ];
 
 // Install Event - Caching Essential Assets
