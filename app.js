@@ -9,69 +9,77 @@ const videoList = [
   "STUK_Flipping_back__Sequence(Prolonged)_v2.mp4"
 ];
 
-// Current index and a flag to track if we've started
-let currentVideoIndex = 0;
-let hasStarted = false; // Will be false until the first tap plays the first video
+// Tracking
+let currentIndex = 0;
+let hasStarted = false;
 
-// Preload the next video (optional optimization)
-function preloadNextVideo() {
-  const nextIndex = (currentVideoIndex + 1) % videoList.length;
-  const nextVideo = document.createElement('video');
-  nextVideo.src = videoList[nextIndex];
-  nextVideo.preload = 'auto';
+// Function to fully preload a video source
+function preloadVideo(url, onReadyCallback) {
+  const tempVideo = document.createElement('video');
+  tempVideo.src = url;
+  tempVideo.preload = 'auto';
+  tempVideo.muted = true;        // same attributes as main video
+  tempVideo.playsinline = true;
+  tempVideo.webkitPlaysinline = true;
+
+  // Once it's ready to play, call the callback
+  tempVideo.addEventListener('canplay', () => {
+    onReadyCallback();
+  });
 }
 
-// Function to switch videos with fade-out transition
-function switchToNextVideo() {
-  // Fade out
-  video.classList.add('fade-out');
+// Function to switch to a specific index
+function switchToVideo(newIndex) {
+  const nextSrc = videoList[newIndex];
 
-  setTimeout(() => {
-    // Move to the next index
-    currentVideoIndex = (currentVideoIndex + 1) % videoList.length;
-    // Update src
-    videoSource.src = videoList[currentVideoIndex];
-    // Loop only if it's back to the first video
-    video.loop = (currentVideoIndex === 0);
+  // Preload next video
+  preloadVideo(nextSrc, () => {
+    // Once next video is ready to play...
+    // Fade out the current
+    video.classList.add('fade-out');
 
-    // Remove fade-out for fade-in
-    video.classList.remove('fade-out');
+    setTimeout(() => {
+      // Update the main video source
+      videoSource.src = nextSrc;
+      // Loop only if it's index 0
+      video.loop = (newIndex === 0);
 
-    // Load & play
-    video.load();
-    video.play();
+      // Reload and play
+      video.load();
+      video.play().catch(err => {
+        console.log('Video play error:', err);
+      });
 
-    // Preload subsequent video
-    preloadNextVideo();
-  }, 500); // match .fade-out transition in CSS
+      // Remove fade-out to fade back in
+      video.classList.remove('fade-out');
+
+      // Update the currentIndex
+      currentIndex = newIndex;
+    }, 500); // match .fade-out transition time
+  });
 }
 
-// On first tap, we play the first video. On subsequent taps, switch to next video.
+// First user tap => start the first video
+// Next taps => go to next video
 function handleTap() {
   if (!hasStarted) {
-    // Start the first video
     hasStarted = true;
-    // The initial source
-    videoSource.src = videoList[currentVideoIndex];
-    video.load();
-    video.play();
-    video.loop = true; // first video loops
-    // Optionally preload next
-    preloadNextVideo();
+    // Start with the first video (index 0), already looped
+    switchToVideo(0);
   } else {
-    // Already started, go to next video
-    switchToNextVideo();
+    // Move to next
+    const nextIndex = (currentIndex + 1) % videoList.length;
+    switchToVideo(nextIndex);
   }
 }
 
-// Instead of listening on the video itself, listen on the entire document
-// This improves reliability of tap detection on iOS
+// Listen for taps anywhere
 document.body.addEventListener('click', handleTap);
 document.body.addEventListener('touchstart', handleTap);
 
-// For debugging or clarity, you can add events like:
+// Optional debugging
 video.addEventListener('play', () => {
-  console.log('Video playing:', videoSource.src);
+  console.log('Playing:', videoSource.src);
 });
 video.addEventListener('error', (e) => {
   console.error('Video error:', e);
