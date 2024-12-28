@@ -1,56 +1,78 @@
-// Get the video element and source element
-const video = document.getElementById("background-video");
-const videoSource = document.getElementById("video-source");
+// Grab the video and its source
+const video = document.getElementById('background-video');
+const videoSource = document.getElementById('video-source');
 
-// List of video paths
+// Our video files
 const videoList = [
-    "Part_01_edited_v3.mp4",
-    "STUK_Flipping__Sequence(Prolonged backside)_v5.mp4",
-    "STUK_Flipping_back__Sequence(Prolonged)_v2.mp4"
+  "Part_01_edited_v3.mp4",
+  "STUK_Flipping__Sequence(Prolonged backside)_v5.mp4",
+  "STUK_Flipping_back__Sequence(Prolonged)_v2.mp4"
 ];
 
-// Track the current video index
+// Current index and a flag to track if we've started
 let currentVideoIndex = 0;
+let hasStarted = false; // Will be false until the first tap plays the first video
 
-// Function to preload the next video
+// Preload the next video (optional optimization)
 function preloadNextVideo() {
-    const nextIndex = (currentVideoIndex + 1) % videoList.length;
-    const nextVideo = document.createElement('video');
-    nextVideo.src = videoList[nextIndex];
-    nextVideo.preload = 'auto';
+  const nextIndex = (currentVideoIndex + 1) % videoList.length;
+  const nextVideo = document.createElement('video');
+  nextVideo.src = videoList[nextIndex];
+  nextVideo.preload = 'auto';
 }
 
-// Function to play the next video with fade transition
-function playNextVideo() {
-    // Add fade-out class to initiate opacity transition
-    video.classList.add('fade-out');
+// Function to switch videos with fade-out transition
+function switchToNextVideo() {
+  // Fade out
+  video.classList.add('fade-out');
 
-    // Wait for the fade-out transition to complete
-    setTimeout(() => {
-        // Update the video index
-        currentVideoIndex = (currentVideoIndex + 1) % videoList.length;
+  setTimeout(() => {
+    // Move to the next index
+    currentVideoIndex = (currentVideoIndex + 1) % videoList.length;
+    // Update src
+    videoSource.src = videoList[currentVideoIndex];
+    // Loop only if it's back to the first video
+    video.loop = (currentVideoIndex === 0);
 
-        // Update the video source
-        videoSource.src = videoList[currentVideoIndex];
-        video.loop = (currentVideoIndex === 0); // Loop only the first video
+    // Remove fade-out for fade-in
+    video.classList.remove('fade-out');
 
-        // Remove the fade-out class to fade in the new video
-        video.classList.remove('fade-out');
+    // Load & play
+    video.load();
+    video.play();
 
-        // Load and play the new video
-        video.load();
-        video.play();
-
-        // Preload the subsequent video
-        preloadNextVideo();
-    }, 500); // Duration matches the CSS transition (0.5s)
-}
-
-// Ensure the first video loops and preload the next video on load
-video.addEventListener('loadeddata', () => {
-    video.loop = true;
+    // Preload subsequent video
     preloadNextVideo();
-}, { once: true });
+  }, 500); // match .fade-out transition in CSS
+}
 
-// Add a click event listener to play the next video
-video.addEventListener("click", playNextVideo);
+// On first tap, we play the first video. On subsequent taps, switch to next video.
+function handleTap() {
+  if (!hasStarted) {
+    // Start the first video
+    hasStarted = true;
+    // The initial source
+    videoSource.src = videoList[currentVideoIndex];
+    video.load();
+    video.play();
+    video.loop = true; // first video loops
+    // Optionally preload next
+    preloadNextVideo();
+  } else {
+    // Already started, go to next video
+    switchToNextVideo();
+  }
+}
+
+// Instead of listening on the video itself, listen on the entire document
+// This improves reliability of tap detection on iOS
+document.body.addEventListener('click', handleTap);
+document.body.addEventListener('touchstart', handleTap);
+
+// For debugging or clarity, you can add events like:
+video.addEventListener('play', () => {
+  console.log('Video playing:', videoSource.src);
+});
+video.addEventListener('error', (e) => {
+  console.error('Video error:', e);
+});
