@@ -6,7 +6,7 @@
     name="viewport"
     content="initial-scale=1.0, user-scalable=no, width=device-width, height=device-height"
   >
-  <title>Fullscreen Video PWA</title>
+  <title>Membership Card PWA</title>
 
   <!-- PWA Meta Tags -->
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,22 +19,21 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <!-- Video Element -->
+  <!-- Video Element (no autoplay, no src yet) -->
   <video
     id="background-video"
     class="background-video"
-    autoplay
     muted
     playsinline
     webkit-playsinline
     loop
   >
-    <source id="video-source" src="Part_01_edited_v3.mp4" type="video/mp4">
+    <source id="video-source" type="video/mp4">
     Your browser does not support the video tag.
   </video>
 
   <!-- Overlay Text -->
-  <div class="overlay-text">Tap to Play Next Video!</div>
+  <div class="overlay-text">Tap to Play / Next Video!</div>
 
   <!-- Link to JS -->
   <script src="app.js"></script>
