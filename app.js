@@ -1,146 +1,142 @@
-/**********************************************
- * Config: List your video files here
- **********************************************/
+// Config
 const videoList = [
   "Part_01_edited_v3.mp4",
   "STUK_Flipping__Sequence(Prolonged backside)_v5.mp4",
   "STUK_Flipping_back__Sequence(Prolonged)_v2.mp4"
 ];
 
-/**********************************************
- * State variables
- **********************************************/
-let currentIndex = 0;
-let allVideos = [];  // will hold references to the <video> elements
-let videosLoadedCount = 0;
-let isAppStarted = false; // user has tapped to actually start playback?
+class VideoPlayer {
+  constructor() {
+    this.currentIndex = 0;
+    this.videos = [];
+    this.isAppStarted = false;
+    this.loadingScreen = document.getElementById("loading-screen");
+    this.videoContainer = document.getElementById("video-container");
+    this.startOverlay = document.getElementById("start-overlay");
+    
+    // Bind methods
+    this.onTap = this.onTap.bind(this);
+    this.handleVideoEnd = this.handleVideoEnd.bind(this);
+  }
 
-/**********************************************
- * DOM elements
- **********************************************/
-const loadingScreen = document.getElementById("loading-screen");
-const videoContainer = document.getElementById("video-container");
-const startOverlay = document.getElementById("start-overlay");
+  async init() {
+    try {
+      await this.preloadVideos();
+      this.setupEventListeners();
+      this.loadingScreen.style.display = "none";
+      this.startOverlay.classList.remove("hidden");
+    } catch (error) {
+      console.error("Initialization error:", error);
+    }
+  }
 
-/**********************************************
- * 1) Create a <video> element for each file
- *    Preload it fully (canplaythrough).
- **********************************************/
-function preloadAllVideos() {
-  videoList.forEach((src, i) => {
-    // Create the <video> element
-    const vid = document.createElement("video");
-    vid.src = src;
-    vid.preload = "auto";
-    vid.muted = true; // iOS requires muted for inline
-    vid.playsInline = true;
-    vid.webkitPlaysinline = true;
-    vid.loop = (i === 0); // first video loops, others do not
+  async preloadVideos() {
+    const loadPromises = videoList.map((src, index) => {
+      return new Promise((resolve, reject) => {
+        const video = document.createElement("video");
+        
+        // Set video properties
+        Object.assign(video, {
+          src,
+          preload: "auto",
+          muted: true,
+          playsInline: true,
+          webkitPlaysinline: true,
+          loop: false
+        });
 
-    // styling to fill container (handled by CSS)
-    vid.style.width = "100%";
-    vid.style.height = "100%";
+        // Set styles
+        Object.assign(video.style, {
+          width: "100%",
+          height: "100%",
+          opacity: "0",
+          position: "absolute",
+          top: "0",
+          left: "0",
+          objectFit: "cover"
+        });
 
-    // Start at opacity 0, only the active one gets .active
-    vid.classList.add("video-item"); // optional class if you want
-    // We'll add .active to the first one once user taps
-
-    // Wait for canplaythrough => fully buffered for smooth playback
-    vid.addEventListener("canplaythrough", () => {
-      videosLoadedCount++;
-      console.log(`Video ${i} loaded: ${src}`);
-      checkAllLoaded();
+        // Event listeners
+        video.addEventListener("canplaythrough", () => resolve(video), { once: true });
+        video.addEventListener("error", reject);
+        
+        // Start loading
+        this.videoContainer.appendChild(video);
+        this.videos.push(video);
+      });
     });
 
-    // Add to container, but they start hidden
-    videoContainer.appendChild(vid);
-    allVideos.push(vid);
-  });
-}
+    // Wait for all videos to load
+    await Promise.all(loadPromises);
+  }
 
-/**********************************************
- * 2) Check if all are loaded => remove loading screen
- **********************************************/
-function checkAllLoaded() {
-  if (videosLoadedCount === videoList.length) {
-    // All videos are fully loaded
-    loadingScreen.style.display = "none"; 
-    // show the start overlay
-    startOverlay.classList.remove("hidden");
+  setupEventListeners() {
+    document.body.addEventListener("click", this.onTap);
+    document.body.addEventListener("touchstart", this.onTap);
+    
+    // Add ended event listeners to all videos except the last one
+    this.videos.forEach((video, index) => {
+      if (index < this.videos.length - 1) {
+        video.addEventListener("ended", () => this.handleVideoEnd(index));
+      }
+    });
+  }
+
+  async transitionToVideo(newIndex) {
+    if (newIndex >= this.videos.length) return;
+
+    const currentVideo = this.videos[this.currentIndex];
+    const nextVideo = this.videos[newIndex];
+
+    // Prepare next video
+    nextVideo.currentTime = 0;
+    
+    try {
+      // Start playing next video before fading
+      await nextVideo.play();
+      
+      // Crossfade videos
+      requestAnimationFrame(() => {
+        nextVideo.style.opacity = "1";
+        currentVideo.style.opacity = "0";
+      });
+
+      // Update current index
+      this.currentIndex = newIndex;
+
+      // Stop previous video after fade
+      setTimeout(() => {
+        currentVideo.pause();
+      }, 800); // Match this with CSS transition duration
+    } catch (error) {
+      console.error("Error during transition:", error);
+    }
+  }
+
+  handleVideoEnd(index) {
+    if (index < this.videos.length - 1) {
+      this.transitionToVideo(index + 1);
+    }
+  }
+
+  async onTap(event) {
+    event.preventDefault();
+
+    if (!this.isAppStarted) {
+      this.isAppStarted = true;
+      this.startOverlay.classList.add("hidden");
+      
+      // Start first video
+      const firstVideo = this.videos[0];
+      firstVideo.style.opacity = "1";
+      await firstVideo.play();
+    } else if (this.currentIndex < this.videos.length - 1) {
+      // Manual transition to next video
+      await this.transitionToVideo(this.currentIndex + 1);
+    }
   }
 }
 
-/**********************************************
- * 3) Crossfade to the next video
- **********************************************/
-function goToVideo(index) {
-  // If index is out of range, wrap around
-  const newIndex = index % allVideos.length;
-
-  // The old active video
-  const oldVid = allVideos[currentIndex];
-  // The new video
-  const newVid = allVideos[newIndex];
-
-  // Make sure the new video is at time=0 (or near it)
-  newVid.currentTime = 0;
-  
-  // oldVid fades out (remove .active => opacity:0), newVid fades in (add .active => opacity:1)
-  oldVid.classList.remove("active");
-  newVid.classList.add("active");
-
-  // For the new one, .play() it
-  newVid.play().catch(err => {
-    console.warn("Play error on new video:", err);
-  });
-
-  // Pause the old one (just in case)
-  oldVid.pause();
-
-  // Update the global currentIndex
-  currentIndex = newIndex;
-}
-
-/**********************************************
- * 4) Handle user taps
- **********************************************/
-function onTap() {
-  if (!isAppStarted) {
-    // First tap => start the first video
-    isAppStarted = true;
-    startOverlay.classList.add("hidden");
-
-    // Mark the first video as .active
-    const firstVid = allVideos[0];
-    firstVid.classList.add("active");
-    // Start playing the first video
-    firstVid.play().catch(err => {
-      console.warn("Play error on first video:", err);
-    });
-  } else {
-    // Next taps => go to next video
-    goToVideo(currentIndex + 1);
-  }
-}
-
-/**********************************************
- * 5) Set up event listeners for taps
- **********************************************/
-function setupTapEvents() {
-  // We listen on the entire document body, for iOS reliability
-  document.body.addEventListener("click", onTap);
-  document.body.addEventListener("touchstart", onTap);
-}
-
-/**********************************************
- * 6) Main init
- **********************************************/
-function init() {
-  // Create & preload all <video> elements
-  preloadAllVideos();
-  // Setup tap events
-  setupTapEvents();
-}
-
-// Start the app
-init();
+// Initialize the player
+const player = new VideoPlayer();
+player.init();
