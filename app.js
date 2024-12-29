@@ -12,9 +12,9 @@ const videoList = [
  **********************************************/
 class VideoPlayer {
   constructor() {
-    this.currentIndex = 0;
     this.videos = [];
     this.isAppStarted = false;
+    this.tapCount = 0;
     this.loadingScreen = document.getElementById("loading-screen");
     this.videoContainer = document.getElementById("video-container");
     this.startOverlay = document.getElementById("start-overlay");
@@ -31,12 +31,9 @@ class VideoPlayer {
       await this.preloadVideos();
       this.setupEventListeners();
       
-      // Pre-buffer the first two videos
-      if (this.videos[0]) {
-        await this.prepareVideo(this.videos[0]);
-        if (this.videos[1]) {
-          await this.prepareVideo(this.videos[1]);
-        }
+      // Pre-buffer all videos
+      for (const video of this.videos) {
+        await this.prepareVideo(video);
       }
       
       this.loadingScreen.style.display = "none";
@@ -52,7 +49,6 @@ class VideoPlayer {
       video.currentTime = 0;
       await video.load();
       
-      // On iOS, we need to start and immediately pause to prepare the video
       if (this.isIOS) {
         await video.play();
         video.pause();
@@ -68,10 +64,8 @@ class VideoPlayer {
       return new Promise((resolve, reject) => {
         const video = document.createElement("video");
         
-        // Set source
         video.innerHTML = `<source src="${src}" type="video/mp4">`;
         
-        // Set video properties
         Object.assign(video, {
           preload: "auto",
           muted: true,
@@ -83,7 +77,6 @@ class VideoPlayer {
           defaultMuted: true
         });
 
-        // Set styles
         Object.assign(video.style, {
           width: "100%",
           height: "100%",
@@ -95,7 +88,6 @@ class VideoPlayer {
           transition: "opacity 0.3s ease-out"
         });
 
-        // Event listeners
         video.addEventListener('loadedmetadata', () => {
           resolve(video);
         }, { once: true });
@@ -114,61 +106,26 @@ class VideoPlayer {
   }
 
   setupEventListeners() {
-    // Remove any existing listeners first
     document.body.removeEventListener("click", this.onTap);
     document.body.removeEventListener("touchstart", this.onTap);
     
-    // Add listeners
     document.body.addEventListener("click", this.onTap, { passive: false });
     document.body.addEventListener("touchstart", this.onTap, { passive: false });
   }
 
-  async transitionToVideo(newIndex) {
-    // Use modulo to wrap around to the beginning
-    const nextIndex = newIndex % this.videos.length;
-    const currentVideo = this.videos[this.currentIndex];
-    const nextVideo = this.videos[nextIndex];
+  async playVideo(index) {
+    // Hide all videos
+    this.videos.forEach(v => {
+      v.pause();
+      v.currentTime = 0;
+      v.style.opacity = "0";
+    });
 
-    try {
-      // Reset next video to beginning and ensure it's fully loaded
-      nextVideo.currentTime = 0;
-      await this.prepareVideo(nextVideo);
-      
-      // Start playing next video while still invisible
-      const playPromise = nextVideo.play();
-      
-      if (playPromise !== undefined) {
-        await playPromise;
-        
-        // Fade transition
-        requestAnimationFrame(() => {
-          nextVideo.style.opacity = "1";
-          currentVideo.style.opacity = "0";
-        });
-
-        // Update current index
-        this.currentIndex = nextIndex;
-        
-        // Clean up current video
-        setTimeout(async () => {
-          currentVideo.pause();
-          currentVideo.currentTime = 0;
-          
-          // Pre-buffer next video in sequence
-          const upcomingIndex = (nextIndex + 1) % this.videos.length;
-          // If we're at the last video, make sure the first one is ready
-          if (upcomingIndex === 0) {
-            await this.prepareVideo(this.videos[0]);
-          } else {
-            await this.prepareVideo(this.videos[upcomingIndex]);
-          }
-        }, 300);
-      }
-    } catch (error) {
-      console.error("Transition error:", error);
-      // Attempt recovery
-      this.currentIndex = nextIndex;
-    }
+    const videoToPlay = this.videos[index];
+    videoToPlay.currentTime = 0;
+    await this.prepareVideo(videoToPlay);
+    await videoToPlay.play();
+    videoToPlay.style.opacity = "1";
   }
 
   async onTap(event) {
@@ -176,20 +133,21 @@ class VideoPlayer {
     
     try {
       if (!this.isAppStarted) {
-        // First tap - start playing
+        // First tap - start app and play first video
         this.isAppStarted = true;
         this.startOverlay.classList.add("hidden");
-        
-        const firstVideo = this.videos[0];
-        firstVideo.style.opacity = "1";
-        await firstVideo.play();
+        this.tapCount = 1;
+        await this.playVideo(0);
       } else {
-        // Subsequent taps - go to next video
-        await this.transitionToVideo(this.currentIndex + 1);
+        // Increment tap count
+        this.tapCount++;
+        
+        // Calculate which video to play (1-based counting for tapCount)
+        const videoIndex = ((this.tapCount - 1) % this.videos.length);
+        await this.playVideo(videoIndex);
       }
     } catch (error) {
       console.error("Playback error:", error);
-      // Attempt recovery by reinitializing if needed
       if (!this.isAppStarted) {
         this.init();
       }
