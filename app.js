@@ -119,10 +119,10 @@ class VideoPlayer {
   }
 
   async transitionToVideo(newIndex) {
-    if (newIndex >= this.videos.length) return;
-
+    // Use modulo to wrap around to the beginning
+    const nextIndex = newIndex % this.videos.length;
     const currentVideo = this.videos[this.currentIndex];
-    const nextVideo = this.videos[newIndex];
+    const nextVideo = this.videos[nextIndex];
 
     try {
       // Make sure next video is ready to play
@@ -138,22 +138,41 @@ class VideoPlayer {
       });
 
       // Update current index
-      this.currentIndex = newIndex;
+      this.currentIndex = nextIndex;
       
       // Cleanup previous video
       setTimeout(() => {
         currentVideo.pause();
         currentVideo.currentTime = 0;
         
-        // Pre-buffer the next video if it exists
-        const upcomingIndex = newIndex + 1;
-        if (upcomingIndex < this.videos.length) {
-          this.prepareVideo(this.videos[upcomingIndex]);
-        }
-      }, 300); // Shorter timeout for faster transitions
+        // Pre-buffer the next video
+        const upcomingIndex = (nextIndex + 1) % this.videos.length;
+        this.prepareVideo(this.videos[upcomingIndex]);
+      }, 300);
       
     } catch (error) {
       console.error("Error during transition:", error);
+    }
+  }
+
+// Replace the onTap method with this:
+  async onTap(event) {
+    event.preventDefault();
+    
+    try {
+      if (!this.isAppStarted) {
+        this.isAppStarted = true;
+        this.startOverlay.classList.add("hidden");
+        
+        const firstVideo = this.videos[0];
+        firstVideo.style.opacity = "1";
+        await firstVideo.play();
+      } else {
+        // Always transition to next video, wrapping around to beginning
+        await this.transitionToVideo(this.currentIndex + 1);
+      }
+    } catch (error) {
+      console.error("Playback error:", error);
     }
   }
 
