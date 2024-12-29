@@ -49,14 +49,15 @@ class VideoPlayer {
 
   async prepareVideo(video) {
     try {
-      // Load a small portion of the video
       video.currentTime = 0;
       await video.load();
       
-      // Start playing but immediately pause
-      await video.play();
-      video.pause();
-      video.currentTime = 0;
+      // On iOS, we need to start and immediately pause to prepare the video
+      if (this.isIOS) {
+        await video.play();
+        video.pause();
+        video.currentTime = 0;
+      }
     } catch (error) {
       console.error("Error preparing video:", error);
     }
@@ -67,10 +68,10 @@ class VideoPlayer {
       return new Promise((resolve, reject) => {
         const video = document.createElement("video");
         
-        video.innerHTML = `
-          <source src="${src}" type="video/mp4">
-        `;
+        // Set source
+        video.innerHTML = `<source src="${src}" type="video/mp4">`;
         
+        // Set video properties
         Object.assign(video, {
           preload: "auto",
           muted: true,
@@ -82,6 +83,7 @@ class VideoPlayer {
           defaultMuted: true
         });
 
+        // Set styles
         Object.assign(video.style, {
           width: "100%",
           height: "100%",
@@ -93,6 +95,7 @@ class VideoPlayer {
           transition: "opacity 0.3s ease-out"
         });
 
+        // Event listeners
         video.addEventListener('loadedmetadata', () => {
           resolve(video);
         }, { once: true });
@@ -111,9 +114,11 @@ class VideoPlayer {
   }
 
   setupEventListeners() {
+    // Remove any existing listeners first
     document.body.removeEventListener("click", this.onTap);
     document.body.removeEventListener("touchstart", this.onTap);
     
+    // Add listeners
     document.body.addEventListener("click", this.onTap, { passive: false });
     document.body.addEventListener("touchstart", this.onTap, { passive: false });
   }
@@ -125,42 +130,47 @@ class VideoPlayer {
     const nextVideo = this.videos[nextIndex];
 
     try {
-      // Make sure next video is ready to play
+      // Prepare next video
       nextVideo.currentTime = 0;
       
-      // Start playing next video while it's still invisible
-      await nextVideo.play();
+      // Start playing next video while still invisible
+      const playPromise = nextVideo.play();
       
-      // Quick fade transition
-      requestAnimationFrame(() => {
-        nextVideo.style.opacity = "1";
-        currentVideo.style.opacity = "0";
-      });
-
-      // Update current index
-      this.currentIndex = nextIndex;
-      
-      // Cleanup previous video
-      setTimeout(() => {
-        currentVideo.pause();
-        currentVideo.currentTime = 0;
+      if (playPromise !== undefined) {
+        await playPromise;
         
-        // Pre-buffer the next video
-        const upcomingIndex = (nextIndex + 1) % this.videos.length;
-        this.prepareVideo(this.videos[upcomingIndex]);
-      }, 300);
-      
+        // Fade transition
+        requestAnimationFrame(() => {
+          nextVideo.style.opacity = "1";
+          currentVideo.style.opacity = "0";
+        });
+
+        // Update current index
+        this.currentIndex = nextIndex;
+        
+        // Clean up current video and prepare next in sequence
+        setTimeout(() => {
+          currentVideo.pause();
+          currentVideo.currentTime = 0;
+          
+          // Pre-buffer next video in sequence
+          const upcomingIndex = (nextIndex + 1) % this.videos.length;
+          this.prepareVideo(this.videos[upcomingIndex]);
+        }, 300);
+      }
     } catch (error) {
-      console.error("Error during transition:", error);
+      console.error("Transition error:", error);
+      // Attempt recovery
+      this.currentIndex = nextIndex;
     }
   }
 
-// Replace the onTap method with this:
   async onTap(event) {
     event.preventDefault();
     
     try {
       if (!this.isAppStarted) {
+        // First tap - start playing
         this.isAppStarted = true;
         this.startOverlay.classList.add("hidden");
         
@@ -168,30 +178,15 @@ class VideoPlayer {
         firstVideo.style.opacity = "1";
         await firstVideo.play();
       } else {
-        // Always transition to next video, wrapping around to beginning
+        // Subsequent taps - go to next video
         await this.transitionToVideo(this.currentIndex + 1);
       }
     } catch (error) {
       console.error("Playback error:", error);
-    }
-  }
-
-  async onTap(event) {
-    event.preventDefault();
-    
-    try {
+      // Attempt recovery by reinitializing if needed
       if (!this.isAppStarted) {
-        this.isAppStarted = true;
-        this.startOverlay.classList.add("hidden");
-        
-        const firstVideo = this.videos[0];
-        firstVideo.style.opacity = "1";
-        await firstVideo.play();
-      } else if (this.currentIndex < this.videos.length - 1) {
-        await this.transitionToVideo(this.currentIndex + 1);
+        this.init();
       }
-    } catch (error) {
-      console.error("Playback error:", error);
     }
   }
 }
