@@ -19,35 +19,46 @@ class VideoPlayer {
     this.videoContainer = document.getElementById("video-container");
     this.startOverlay = document.getElementById("start-overlay");
     this.loadingText = document.querySelector(".loading-text");
+    this.isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     
     // Bind methods
     this.onTap = this.onTap.bind(this);
-    this.handleVideoEnd = this.handleVideoEnd.bind(this);
   }
 
   async init() {
     try {
-      // Check if running on iOS
-      this.isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-      
-      // Update loading text to show progress
       this.loadingText.textContent = "Preparing videos...";
-      
       await this.preloadVideos();
       this.setupEventListeners();
       
-      // Show start overlay
+      // Pre-buffer the first two videos
+      if (this.videos[0]) {
+        await this.prepareVideo(this.videos[0]);
+        if (this.videos[1]) {
+          await this.prepareVideo(this.videos[1]);
+        }
+      }
+      
       this.loadingScreen.style.display = "none";
       this.startOverlay.classList.remove("hidden");
-      
-      // Pre-load first video for iOS
-      if (this.isIOS) {
-        const firstVideo = this.videos[0];
-        firstVideo.load();
-      }
     } catch (error) {
       console.error("Initialization error:", error);
       this.loadingText.textContent = "Error loading videos. Please refresh.";
+    }
+  }
+
+  async prepareVideo(video) {
+    try {
+      // Load a small portion of the video
+      video.currentTime = 0;
+      await video.load();
+      
+      // Start playing but immediately pause
+      await video.play();
+      video.pause();
+      video.currentTime = 0;
+    } catch (error) {
+      console.error("Error preparing video:", error);
     }
   }
 
@@ -56,20 +67,21 @@ class VideoPlayer {
       return new Promise((resolve, reject) => {
         const video = document.createElement("video");
         
-        // Set video properties
+        video.innerHTML = `
+          <source src="${src}" type="video/mp4">
+        `;
+        
         Object.assign(video, {
-          src,
           preload: "auto",
           muted: true,
           playsInline: true,
-          playsinline: true, // iOS specific
-          'webkit-playsinline': true, // iOS specific
+          playsinline: true,
+          'webkit-playsinline': true,
           controls: false,
           loop: false,
-          defaultMuted: true // iOS specific
+          defaultMuted: true
         });
 
-        // Set styles
         Object.assign(video.style, {
           width: "100%",
           height: "100%",
@@ -77,62 +89,33 @@ class VideoPlayer {
           position: "absolute",
           top: "0",
           left: "0",
-          objectFit: "cover"
+          objectFit: "cover",
+          transition: "opacity 0.3s ease-out"
         });
 
-        // iOS specific event listeners
-        if (this.isIOS) {
-          video.addEventListener('loadedmetadata', () => {
-            video.load(); // Force load on iOS
-            resolve(video);
-          }, { once: true });
-        } else {
-          video.addEventListener("canplaythrough", () => resolve(video), { once: true });
-        }
+        video.addEventListener('loadedmetadata', () => {
+          resolve(video);
+        }, { once: true });
 
         video.addEventListener("error", (e) => {
           console.error(`Error loading video ${index}:`, e);
           reject(e);
         });
         
-        // Start loading
         this.videoContainer.appendChild(video);
         this.videos.push(video);
-        
-        // Force load for iOS
-        if (this.isIOS) {
-          video.load();
-        }
       });
     });
 
-    // Wait for all videos to load with timeout
-    try {
-      await Promise.race([
-        Promise.all(loadPromises),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Loading timeout')), 30000))
-      ]);
-    } catch (error) {
-      console.error('Video loading error or timeout:', error);
-      throw error;
-    }
+    await Promise.all(loadPromises);
   }
 
   setupEventListeners() {
-    // Remove any existing listeners
     document.body.removeEventListener("click", this.onTap);
     document.body.removeEventListener("touchstart", this.onTap);
     
-    // Add new listeners
     document.body.addEventListener("click", this.onTap, { passive: false });
     document.body.addEventListener("touchstart", this.onTap, { passive: false });
-    
-    // Add ended event listeners
-    this.videos.forEach((video, index) => {
-      if (index < this.videos.length - 1) {
-        video.addEventListener("ended", () => this.handleVideoEnd(index));
-      }
-    });
   }
 
   async transitionToVideo(newIndex) {
@@ -141,51 +124,40 @@ class VideoPlayer {
     const currentVideo = this.videos[this.currentIndex];
     const nextVideo = this.videos[newIndex];
 
-    // Prepare next video
     try {
+      // Make sure next video is ready to play
       nextVideo.currentTime = 0;
       
-      // iOS specific handling
-      if (this.isIOS) {
-        await nextVideo.load();
-      }
+      // Start playing next video while it's still invisible
+      await nextVideo.play();
       
-      // Start playing next video
-      const playPromise = nextVideo.play();
-      if (playPromise !== undefined) {
-        await playPromise;
+      // Quick fade transition
+      requestAnimationFrame(() => {
+        nextVideo.style.opacity = "1";
+        currentVideo.style.opacity = "0";
+      });
+
+      // Update current index
+      this.currentIndex = newIndex;
+      
+      // Cleanup previous video
+      setTimeout(() => {
+        currentVideo.pause();
+        currentVideo.currentTime = 0;
         
-        // Crossfade videos
-        requestAnimationFrame(() => {
-          nextVideo.style.opacity = "1";
-          currentVideo.style.opacity = "0";
-        });
-
-        // Update current index
-        this.currentIndex = newIndex;
-
-        // Stop previous video after fade
-        setTimeout(() => {
-          currentVideo.pause();
-          if (this.isIOS) {
-            currentVideo.currentTime = 0;
-          }
-        }, 800);
-      }
+        // Pre-buffer the next video if it exists
+        const upcomingIndex = newIndex + 1;
+        if (upcomingIndex < this.videos.length) {
+          this.prepareVideo(this.videos[upcomingIndex]);
+        }
+      }, 300); // Shorter timeout for faster transitions
+      
     } catch (error) {
       console.error("Error during transition:", error);
-      this.loadingText.textContent = "Playback error. Please refresh.";
-    }
-  }
-
-  handleVideoEnd(index) {
-    if (index < this.videos.length - 1) {
-      this.transitionToVideo(index + 1);
     }
   }
 
   async onTap(event) {
-    // Prevent default behavior
     event.preventDefault();
     
     try {
@@ -193,14 +165,7 @@ class VideoPlayer {
         this.isAppStarted = true;
         this.startOverlay.classList.add("hidden");
         
-        // Start first video
         const firstVideo = this.videos[0];
-        
-        // iOS specific handling
-        if (this.isIOS) {
-          await firstVideo.load();
-        }
-        
         firstVideo.style.opacity = "1";
         await firstVideo.play();
       } else if (this.currentIndex < this.videos.length - 1) {
@@ -208,7 +173,6 @@ class VideoPlayer {
       }
     } catch (error) {
       console.error("Playback error:", error);
-      this.loadingText.textContent = "Playback error. Please refresh.";
     }
   }
 }
