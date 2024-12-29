@@ -1,38 +1,77 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta
-    name="viewport"
-    content="initial-scale=1.0, user-scalable=no, width=device-width, height=device-height"
-  >
-  <title>Seamless Video App</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    
+    <!-- iOS specific meta tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
+    
+    <!-- Prevent text sizing -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <title>Video Player</title>
 
-  <!-- iOS "Add to Home Screen" -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <!-- PWA related tags -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    
+    <!-- iOS PWA specific tags -->
+    <link rel="apple-touch-icon" href="icon-192x192.png">
+    <meta name="apple-mobile-web-app-title" content="Video Player">
+    
+    <!-- Prevent caching of videos -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
 
-  <!-- Link to Manifest (optional if you have a PWA) -->
-  <!-- <link rel="manifest" href="manifest.json"> -->
+    <!-- CSS -->
+    <link rel="stylesheet" href="styles.css">
 
-  <link rel="stylesheet" href="styles.css">
+    <!-- Preload hint for videos -->
+    <link rel="preload" as="video" href="Part_01_edited_v3.mp4" type="video/mp4">
+    <link rel="preload" as="video" href="STUK_Flipping__Sequence(Prolonged backside)_v5.mp4" type="video/mp4">
+    <link rel="preload" as="video" href="STUK_Flipping_back__Sequence(Prolonged)_v2.mp4" type="video/mp4">
 </head>
 <body>
-  <!-- Loading screen / overlay (shown until all videos are ready) -->
-  <div id="loading-screen">
-    <div class="loading-text">Loading videos, please wait...</div>
-  </div>
+    <!-- Loading screen -->
+    <div id="loading-screen">
+        <div class="loading-text">Loading videos, please wait...</div>
+        <!-- Optional: Add a loading spinner here -->
+        <div class="loading-spinner"></div>
+    </div>
 
-  <!-- Container holding multiple <video> elements, each stacked/faded -->
-  <div id="video-container">
-    <!-- We'll generate <video> elements dynamically in app.js -->
-  </div>
+    <!-- Video container -->
+    <div id="video-container">
+        <!-- Videos will be dynamically inserted here -->
+    </div>
 
-  <!-- Button or overlay text to instruct user to start -->
-  <div id="start-overlay" class="overlay-text hidden">
-    Tap to Start / Next
-  </div>
+    <!-- Start overlay -->
+    <div id="start-overlay" class="hidden">
+        <div class="start-text">Tap to Start</div>
+    </div>
 
-  <script src="app.js"></script>
+    <!-- Debug info for development (can be removed in production) -->
+    <div id="debug-info" style="display: none; position: fixed; bottom: 10px; left: 10px; color: white; z-index: 1000; font-size: 12px;"></div>
+
+    <!-- Scripts -->
+    <script src="app.js" defer></script>
+
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful');
+                    })
+                    .catch(err => {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+    </script>
 </body>
 </html>
