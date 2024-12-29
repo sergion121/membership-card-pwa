@@ -130,8 +130,9 @@ class VideoPlayer {
     const nextVideo = this.videos[nextIndex];
 
     try {
-      // Prepare next video
+      // Reset next video to beginning and ensure it's fully loaded
       nextVideo.currentTime = 0;
+      await this.prepareVideo(nextVideo);
       
       // Start playing next video while still invisible
       const playPromise = nextVideo.play();
@@ -148,14 +149,19 @@ class VideoPlayer {
         // Update current index
         this.currentIndex = nextIndex;
         
-        // Clean up current video and prepare next in sequence
-        setTimeout(() => {
+        // Clean up current video
+        setTimeout(async () => {
           currentVideo.pause();
           currentVideo.currentTime = 0;
           
           // Pre-buffer next video in sequence
           const upcomingIndex = (nextIndex + 1) % this.videos.length;
-          this.prepareVideo(this.videos[upcomingIndex]);
+          // If we're at the last video, make sure the first one is ready
+          if (upcomingIndex === 0) {
+            await this.prepareVideo(this.videos[0]);
+          } else {
+            await this.prepareVideo(this.videos[upcomingIndex]);
+          }
         }, 300);
       }
     } catch (error) {
