@@ -1,86 +1,146 @@
-// Grab the video and its source
-const video = document.getElementById('background-video');
-const videoSource = document.getElementById('video-source');
-
-// Our video files
+/**********************************************
+ * Config: List your video files here
+ **********************************************/
 const videoList = [
   "Part_01_edited_v3.mp4",
   "STUK_Flipping__Sequence(Prolonged backside)_v5.mp4",
   "STUK_Flipping_back__Sequence(Prolonged)_v2.mp4"
 ];
 
-// Tracking
+/**********************************************
+ * State variables
+ **********************************************/
 let currentIndex = 0;
-let hasStarted = false;
+let allVideos = [];  // will hold references to the <video> elements
+let videosLoadedCount = 0;
+let isAppStarted = false; // user has tapped to actually start playback?
 
-// Function to fully preload a video source
-function preloadVideo(url, onReadyCallback) {
-  const tempVideo = document.createElement('video');
-  tempVideo.src = url;
-  tempVideo.preload = 'auto';
-  tempVideo.muted = true;        // same attributes as main video
-  tempVideo.playsinline = true;
-  tempVideo.webkitPlaysinline = true;
+/**********************************************
+ * DOM elements
+ **********************************************/
+const loadingScreen = document.getElementById("loading-screen");
+const videoContainer = document.getElementById("video-container");
+const startOverlay = document.getElementById("start-overlay");
 
-  // Once it's ready to play, call the callback
-  tempVideo.addEventListener('canplay', () => {
-    onReadyCallback();
+/**********************************************
+ * 1) Create a <video> element for each file
+ *    Preload it fully (canplaythrough).
+ **********************************************/
+function preloadAllVideos() {
+  videoList.forEach((src, i) => {
+    // Create the <video> element
+    const vid = document.createElement("video");
+    vid.src = src;
+    vid.preload = "auto";
+    vid.muted = true; // iOS requires muted for inline
+    vid.playsInline = true;
+    vid.webkitPlaysinline = true;
+    vid.loop = (i === 0); // first video loops, others do not
+
+    // styling to fill container (handled by CSS)
+    vid.style.width = "100%";
+    vid.style.height = "100%";
+
+    // Start at opacity 0, only the active one gets .active
+    vid.classList.add("video-item"); // optional class if you want
+    // We'll add .active to the first one once user taps
+
+    // Wait for canplaythrough => fully buffered for smooth playback
+    vid.addEventListener("canplaythrough", () => {
+      videosLoadedCount++;
+      console.log(`Video ${i} loaded: ${src}`);
+      checkAllLoaded();
+    });
+
+    // Add to container, but they start hidden
+    videoContainer.appendChild(vid);
+    allVideos.push(vid);
   });
 }
 
-// Function to switch to a specific index
-function switchToVideo(newIndex) {
-  const nextSrc = videoList[newIndex];
-
-  // Preload next video
-  preloadVideo(nextSrc, () => {
-    // Once next video is ready to play...
-    // Fade out the current
-    video.classList.add('fade-out');
-
-    setTimeout(() => {
-      // Update the main video source
-      videoSource.src = nextSrc;
-      // Loop only if it's index 0
-      video.loop = (newIndex === 0);
-
-      // Reload and play
-      video.load();
-      video.play().catch(err => {
-        console.log('Video play error:', err);
-      });
-
-      // Remove fade-out to fade back in
-      video.classList.remove('fade-out');
-
-      // Update the currentIndex
-      currentIndex = newIndex;
-    }, 500); // match .fade-out transition time
-  });
-}
-
-// First user tap => start the first video
-// Next taps => go to next video
-function handleTap() {
-  if (!hasStarted) {
-    hasStarted = true;
-    // Start with the first video (index 0), already looped
-    switchToVideo(0);
-  } else {
-    // Move to next
-    const nextIndex = (currentIndex + 1) % videoList.length;
-    switchToVideo(nextIndex);
+/**********************************************
+ * 2) Check if all are loaded => remove loading screen
+ **********************************************/
+function checkAllLoaded() {
+  if (videosLoadedCount === videoList.length) {
+    // All videos are fully loaded
+    loadingScreen.style.display = "none"; 
+    // show the start overlay
+    startOverlay.classList.remove("hidden");
   }
 }
 
-// Listen for taps anywhere
-document.body.addEventListener('click', handleTap);
-document.body.addEventListener('touchstart', handleTap);
+/**********************************************
+ * 3) Crossfade to the next video
+ **********************************************/
+function goToVideo(index) {
+  // If index is out of range, wrap around
+  const newIndex = index % allVideos.length;
 
-// Optional debugging
-video.addEventListener('play', () => {
-  console.log('Playing:', videoSource.src);
-});
-video.addEventListener('error', (e) => {
-  console.error('Video error:', e);
-});
+  // The old active video
+  const oldVid = allVideos[currentIndex];
+  // The new video
+  const newVid = allVideos[newIndex];
+
+  // Make sure the new video is at time=0 (or near it)
+  newVid.currentTime = 0;
+  
+  // oldVid fades out (remove .active => opacity:0), newVid fades in (add .active => opacity:1)
+  oldVid.classList.remove("active");
+  newVid.classList.add("active");
+
+  // For the new one, .play() it
+  newVid.play().catch(err => {
+    console.warn("Play error on new video:", err);
+  });
+
+  // Pause the old one (just in case)
+  oldVid.pause();
+
+  // Update the global currentIndex
+  currentIndex = newIndex;
+}
+
+/**********************************************
+ * 4) Handle user taps
+ **********************************************/
+function onTap() {
+  if (!isAppStarted) {
+    // First tap => start the first video
+    isAppStarted = true;
+    startOverlay.classList.add("hidden");
+
+    // Mark the first video as .active
+    const firstVid = allVideos[0];
+    firstVid.classList.add("active");
+    // Start playing the first video
+    firstVid.play().catch(err => {
+      console.warn("Play error on first video:", err);
+    });
+  } else {
+    // Next taps => go to next video
+    goToVideo(currentIndex + 1);
+  }
+}
+
+/**********************************************
+ * 5) Set up event listeners for taps
+ **********************************************/
+function setupTapEvents() {
+  // We listen on the entire document body, for iOS reliability
+  document.body.addEventListener("click", onTap);
+  document.body.addEventListener("touchstart", onTap);
+}
+
+/**********************************************
+ * 6) Main init
+ **********************************************/
+function init() {
+  // Create & preload all <video> elements
+  preloadAllVideos();
+  // Setup tap events
+  setupTapEvents();
+}
+
+// Start the app
+init();

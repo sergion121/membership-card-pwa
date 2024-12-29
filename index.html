@@ -6,51 +6,33 @@
     name="viewport"
     content="initial-scale=1.0, user-scalable=no, width=device-width, height=device-height"
   >
-  <title>Membership Card PWA</title>
+  <title>Seamless Video App</title>
 
-  <!-- PWA Meta Tags -->
+  <!-- iOS "Add to Home Screen" -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-  <!-- Link to Manifest -->
-  <link rel="manifest" href="manifest.json">
+  <!-- Link to Manifest (optional if you have a PWA) -->
+  <!-- <link rel="manifest" href="manifest.json"> -->
 
-  <!-- Link to CSS -->
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <!-- Video Element (no autoplay to comply with iOS user gesture rules) -->
-  <video
-    id="background-video"
-    class="background-video"
-    muted
-    playsinline
-    webkit-playsinline
-    loop
-  >
-    <source id="video-source" type="video/mp4">
-    Your browser does not support the video tag.
-  </video>
+  <!-- Loading screen / overlay (shown until all videos are ready) -->
+  <div id="loading-screen">
+    <div class="loading-text">Loading videos, please wait...</div>
+  </div>
 
-  <!-- Overlay Text -->
-  <div class="overlay-text">Tap to Play / Next Video!</div>
+  <!-- Container holding multiple <video> elements, each stacked/faded -->
+  <div id="video-container">
+    <!-- We'll generate <video> elements dynamically in app.js -->
+  </div>
 
-  <!-- Link to JS -->
+  <!-- Button or overlay text to instruct user to start -->
+  <div id="start-overlay" class="overlay-text hidden">
+    Tap to Start / Next
+  </div>
+
   <script src="app.js"></script>
-
-  <!-- Register Service Worker -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js')
-          .then(registration => {
-            console.log('Service Worker Registered with scope:', registration.scope);
-          })
-          .catch(error => {
-            console.error('Service Worker Registration Failed:', error);
-          });
-      });
-    }
-  </script>
 </body>
 </html>
