@@ -12,9 +12,9 @@ const videoList = [
  **********************************************/
 class VideoPlayer {
   constructor() {
+    this.currentIndex = 0;
     this.videos = [];
     this.isAppStarted = false;
-    this.tapCount = 0;
     this.loadingScreen = document.getElementById("loading-screen");
     this.videoContainer = document.getElementById("video-container");
     this.startOverlay = document.getElementById("start-overlay");
@@ -31,9 +31,12 @@ class VideoPlayer {
       await this.preloadVideos();
       this.setupEventListeners();
       
-      // Pre-buffer all videos
-      for (const video of this.videos) {
-        await this.prepareVideo(video);
+      // Pre-buffer the first two videos
+      if (this.videos[0]) {
+        await this.prepareVideo(this.videos[0]);
+        if (this.videos[1]) {
+          await this.prepareVideo(this.videos[1]);
+        }
       }
       
       this.loadingScreen.style.display = "none";
@@ -46,14 +49,14 @@ class VideoPlayer {
 
   async prepareVideo(video) {
     try {
+      // Load a small portion of the video
       video.currentTime = 0;
       await video.load();
       
-      if (this.isIOS) {
-        await video.play();
-        video.pause();
-        video.currentTime = 0;
-      }
+      // Start playing but immediately pause
+      await video.play();
+      video.pause();
+      video.currentTime = 0;
     } catch (error) {
       console.error("Error preparing video:", error);
     }
@@ -64,7 +67,9 @@ class VideoPlayer {
       return new Promise((resolve, reject) => {
         const video = document.createElement("video");
         
-        video.innerHTML = `<source src="${src}" type="video/mp4">`;
+        video.innerHTML = `
+          <source src="${src}" type="video/mp4">
+        `;
         
         Object.assign(video, {
           preload: "auto",
@@ -113,19 +118,43 @@ class VideoPlayer {
     document.body.addEventListener("touchstart", this.onTap, { passive: false });
   }
 
-  async playVideo(index) {
-    // Hide all videos
-    this.videos.forEach(v => {
-      v.pause();
-      v.currentTime = 0;
-      v.style.opacity = "0";
-    });
+  async transitionToVideo(newIndex) {
+    if (newIndex >= this.videos.length) return;
 
-    const videoToPlay = this.videos[index];
-    videoToPlay.currentTime = 0;
-    await this.prepareVideo(videoToPlay);
-    await videoToPlay.play();
-    videoToPlay.style.opacity = "1";
+    const currentVideo = this.videos[this.currentIndex];
+    const nextVideo = this.videos[newIndex];
+
+    try {
+      // Make sure next video is ready to play
+      nextVideo.currentTime = 0;
+      
+      // Start playing next video while it's still invisible
+      await nextVideo.play();
+      
+      // Quick fade transition
+      requestAnimationFrame(() => {
+        nextVideo.style.opacity = "1";
+        currentVideo.style.opacity = "0";
+      });
+
+      // Update current index
+      this.currentIndex = newIndex;
+      
+      // Cleanup previous video
+      setTimeout(() => {
+        currentVideo.pause();
+        currentVideo.currentTime = 0;
+        
+        // Pre-buffer the next video if it exists
+        const upcomingIndex = newIndex + 1;
+        if (upcomingIndex < this.videos.length) {
+          this.prepareVideo(this.videos[upcomingIndex]);
+        }
+      }, 300); // Shorter timeout for faster transitions
+      
+    } catch (error) {
+      console.error("Error during transition:", error);
+    }
   }
 
   async onTap(event) {
@@ -133,24 +162,17 @@ class VideoPlayer {
     
     try {
       if (!this.isAppStarted) {
-        // First tap - start app and play first video
         this.isAppStarted = true;
         this.startOverlay.classList.add("hidden");
-        this.tapCount = 1;
-        await this.playVideo(0);
-      } else {
-        // Increment tap count
-        this.tapCount++;
         
-        // Calculate which video to play (1-based counting for tapCount)
-        const videoIndex = ((this.tapCount - 1) % this.videos.length);
-        await this.playVideo(videoIndex);
+        const firstVideo = this.videos[0];
+        firstVideo.style.opacity = "1";
+        await firstVideo.play();
+      } else if (this.currentIndex < this.videos.length - 1) {
+        await this.transitionToVideo(this.currentIndex + 1);
       }
     } catch (error) {
       console.error("Playback error:", error);
-      if (!this.isAppStarted) {
-        this.init();
-      }
     }
   }
 }
